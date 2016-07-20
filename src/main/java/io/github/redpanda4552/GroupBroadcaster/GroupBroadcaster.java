@@ -79,8 +79,8 @@ public class GroupBroadcaster {
         plugin = Sponge.getPluginManager().getPlugin("groupbroadcaster").get();
         pluginInstance = this;
         
-        Asset asset = plugin.getAsset("GroupBroadcasterConfig.conf").orElse(null);
-        Path configPath = configDir.resolve("GroupBroadcasterConfig.conf");
+        Asset asset = plugin.getAsset("groupbroadcaster.conf").orElse(null);
+        Path configPath = configDir.resolve("groupbroadcaster.conf");
         
         if (asset != null) {
             if (Files.notExists(configPath)) {
@@ -111,7 +111,6 @@ public class GroupBroadcaster {
         String s = rootNode.getNode("config", "settings", "mode").getString();
         log.info(s);
         
-        log.info(rootNode.toString());
         
 //        switch (rootNode.getNode("settings", "mode").getString()) {
 //        case "group":
@@ -124,10 +123,6 @@ public class GroupBroadcaster {
 //            easyMode = true;
 //        }
         
-        for (ConfigurationNode node : rootNode.getChildrenList()) {
-            log.info(node.getString());
-        }
-        
         if (easyMode) {
             
         } else {
@@ -138,7 +133,7 @@ public class GroupBroadcaster {
             log.info("===================");
             log.info("== Group Loading ==");
             log.info("===================");
-            for (ConfigurationNode group : rootNode.getNode("groups").getChildrenList()) {
+            for (ConfigurationNode group : rootNode.getNode("config", "settings", "groups").getChildrenList()) {
                 log.info("Evaluating ConfigurationNode " + group.toString());
                 LinkedHashSet<String> messages = new LinkedHashSet<String>();
                 
