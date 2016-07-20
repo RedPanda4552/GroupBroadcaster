@@ -130,8 +130,8 @@ public class GroupBroadcaster {
             log.info("===================");
             log.info("== Group Loading ==");
             log.info("===================");
-            for (ConfigurationNode group : rootNode.getNode("config", "settings", "groups").getChildrenList()) {
-                log.info("Evaluating ConfigurationNode " + group.toString());
+            for (ConfigurationNode group : rootNode.getNode("config", "groups").getChildrenList()) {
+                log.info("Evaluating ConfigurationNode " + group.getKey().toString());
                 LinkedHashSet<String> messages = new LinkedHashSet<String>();
                 
                 for (ConfigurationNode node : group.getNode("messages").getChildrenList()) {
