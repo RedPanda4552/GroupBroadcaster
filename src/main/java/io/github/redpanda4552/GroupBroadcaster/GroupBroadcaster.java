@@ -109,7 +109,7 @@ public class GroupBroadcaster {
         }
         
         
-        switch (rootNode.getNode("settings", "mode").getString()) {
+        switch (rootNode.getNode("config", "settings", "mode").getString()) {
         case "group":
             easyMode = false;
             break;
