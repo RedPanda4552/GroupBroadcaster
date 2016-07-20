@@ -108,9 +108,6 @@ public class GroupBroadcaster {
             return;
         }
         
-        String s = rootNode.getNode("config", "settings", "mode").getString();
-        log.info(s);
-        
         
         switch (rootNode.getNode("settings", "mode").getString()) {
         case "group":
