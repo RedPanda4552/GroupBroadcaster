@@ -120,6 +120,7 @@ public class GroupBroadcaster {
             easyMode = true;
             break;
         default:
+            log.warn("Bad 'mode' setting in config! Options are 'group' or 'easy'. Defaulting to 'easy'");
             easyMode = true;
         }
         
