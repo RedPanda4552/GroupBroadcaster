@@ -173,7 +173,7 @@ public class GroupBroadcaster {
         }
     }
     
-    public HashMap<String, Group> getGroupList() {
+    public HashMap<String, Group> getGroupMap() {
         return groupMap;
     }
     
