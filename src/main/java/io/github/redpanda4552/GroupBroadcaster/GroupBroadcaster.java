@@ -3,7 +3,7 @@ package io.github.redpanda4552.GroupBroadcaster;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -62,7 +62,7 @@ public class GroupBroadcaster {
     
     public static PluginContainer plugin;
     public static GroupBroadcaster pluginInstance;
-    private ArrayList<Group> groupList = null;
+    private HashMap<String, Group> groupList = null;
     private boolean easyMode;
     
     /**
@@ -126,28 +126,35 @@ public class GroupBroadcaster {
         if (easyMode) {
             
         } else {
+            // TODO Explicitly look out for duplicate groups
             String groupId, messageOrdering, superGroup, frequency;
             Sponge.getEventManager().registerListeners(this, new PlayerJoinLeaveListener());
-            groupList = new ArrayList<Group>();
+            groupList = new HashMap<String, Group>();
             
             log.info("");
             log.info("===================");
             log.info("== Group Loading ==");
             log.info("===================");
             for (ConfigurationNode group : rootNode.getNode("config", "groups").getChildrenMap().values()) {
-                log.info("Evaluating ConfigurationNode " + group.getKey().toString());
-                LinkedHashSet<String> messages = new LinkedHashSet<String>();
+                groupId = group.getKey().toString();
+                log.info("Evaluating ConfigurationNode " + groupId);
                 
-                for (ConfigurationNode node : group.getNode("messages").getChildrenList()) {
-                    messages.add(node.getString(node.getString()));
+                if (groupList.containsKey(groupId)) {
+                    log.warn("Duplicate group '" + groupId + "' found! Ignoring the second occurence of it.");
+                    continue;
                 }
                 
-                groupId = group.getKey().toString();
                 messageOrdering = group.getNode("message-ordering") != null ? group.getNode("message-ordering").getString() : null;
                 superGroup = group.getNode("super-group") != null ? group.getNode("super-group").getString() : null;
                 frequency = group.getNode("frequency") != null ? group.getNode("frequency").getString() : null;
                 
-                groupList.add(new Group(groupId, superGroup, messageOrdering, frequency, messages));
+                LinkedHashSet<String> messages = new LinkedHashSet<String>();
+                
+                for (ConfigurationNode node : group.getNode("messages").getChildrenMap().values()) {
+                    messages.add(node.getString());
+                }
+                
+                groupList.put(groupId, new Group(groupId, superGroup, messageOrdering, frequency, messages));
             }
             
             log.info("========================");
@@ -166,7 +173,7 @@ public class GroupBroadcaster {
         }
     }
     
-    public ArrayList<Group> getGroupList() {
+    public HashMap<String, Group> getGroupList() {
         return groupList;
     }
     
@@ -262,7 +269,6 @@ public class GroupBroadcaster {
         }
         
         while (superIterator.hasNext()) {
-            log.info("ret null: " + (ret == null) + " TextSerializers null: " + (TextSerializers.FORMATTING_CODE == null) + " superIterator null: " + (superIterator == null));
             ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
         }
         
