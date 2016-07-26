@@ -62,7 +62,7 @@ public class GroupBroadcaster {
     
     public static PluginContainer plugin;
     public static GroupBroadcaster pluginInstance;
-    private HashMap<String, Group> groupList = null;
+    private HashMap<String, Group> groupMap = null;
     private boolean easyMode;
     
     /**
@@ -129,7 +129,7 @@ public class GroupBroadcaster {
         } else {
             String groupId, messageOrdering, superGroup, frequency;
             Sponge.getEventManager().registerListeners(this, new PlayerJoinLeaveListener());
-            groupList = new HashMap<String, Group>();
+            groupMap = new HashMap<String, Group>();
             
             log.info("");
             log.info("===================");
@@ -139,7 +139,7 @@ public class GroupBroadcaster {
                 groupId = group.getKey().toString();
                 log.info("Evaluating ConfigurationNode " + groupId);
                 
-                if (groupList.containsKey(groupId)) {
+                if (groupMap.containsKey(groupId)) {
                     log.warn("Duplicate group '" + groupId + "' found! Ignoring the second occurence of it.");
                     continue;
                 }
@@ -154,7 +154,7 @@ public class GroupBroadcaster {
                     messages.add(node.getString());
                 }
                 
-                groupList.put(groupId, new Group(groupId, superGroup, messageOrdering, frequency, messages));
+                groupMap.put(groupId, new Group(groupId, superGroup, messageOrdering, frequency, messages));
             }
             
             log.info("========================");
@@ -174,7 +174,7 @@ public class GroupBroadcaster {
     }
     
     public HashMap<String, Group> getGroupList() {
-        return groupList;
+        return groupMap;
     }
     
     /**
