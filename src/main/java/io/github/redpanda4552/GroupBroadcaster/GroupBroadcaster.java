@@ -85,8 +85,8 @@ public class GroupBroadcaster {
         Asset asset = plugin.getAsset("groupbroadcaster.conf").orElse(null);
         Path configPath = configDir.resolve("groupbroadcaster.conf");
         
-        if (asset != null) {
-            if (Files.notExists(configPath)) {
+        if (Files.notExists(configPath)) {
+            if (asset != null) {
                 try {
                     asset.copyToFile(configPath);
                 } catch (IOException e) {
@@ -95,11 +95,11 @@ public class GroupBroadcaster {
                     onServerStop(null);
                     return;
                 }
+            } else {
+                log.error("Could not find the default config file in the jar! Did you open the jar and delete it?");
+                onServerStop(null);
+                return;
             }
-        } else {
-            log.error("Could not find the default config file in the jar! Did you open the jar and delete it?");
-            onServerStop(null);
-            return;
         }
         
         try {
