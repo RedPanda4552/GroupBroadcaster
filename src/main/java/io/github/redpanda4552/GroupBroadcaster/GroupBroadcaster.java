@@ -186,6 +186,7 @@ public class GroupBroadcaster {
         LinkedHashSet<String> messages = new LinkedHashSet<String>();
         ConfigurationNode groupsRoot = rootNode.getNode("config", "groups");
         ConfigurationNode group = groupsRoot.getNode(groupId);
+        log.info("Getting all messages for group " + groupId);
         
         if (group == null) {
             log.warn("A group has a super-group set to " + groupId + ", but no such group exists!");
@@ -193,11 +194,13 @@ public class GroupBroadcaster {
         }
         
         if (group.getNode("super-group") != null && group.getNode("super-group").getString() != null) {
+            log.debug("Found a super-group '" + group.getNode("super-group").getString() + "', adding all its messages");
             messages.addAll(getGroupMessages(group.getNode("super-group").getString()));
         }
         
         for (ConfigurationNode node : group.getNode("messages").getChildrenMap().values()) {
-            messages.add(node.getNode(node.getString()).getString());
+            log.debug("Adding a message from this group, " + groupId);
+            messages.add(node.getString());
         }
         
         return messages;
@@ -217,9 +220,11 @@ public class GroupBroadcaster {
                 int x = 0;
                 
                 if (groupIterator.hasNext() && x < largerFreq) {
+                    log.info("Deserializing from this group");
                     ret.add(TextSerializers.FORMATTING_CODE.deserialize(groupIterator.next()));
                     x++;
                 } else if (superIterator.hasNext()) {
+                    log.info("Deserializing from the super group");
                     ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
                     x = 0;
                 } else {
@@ -265,10 +270,12 @@ public class GroupBroadcaster {
         LinkedHashSet<Text> ret = new LinkedHashSet<Text>();
         
         while (groupIterator.hasNext()) {
+            log.debug("Deserializing from this group");
             ret.add(TextSerializers.FORMATTING_CODE.deserialize(groupIterator.next()));
         }
         
         while (superIterator.hasNext()) {
+            log.debug("Deserializing from this group");
             ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
         }
         
