@@ -79,6 +79,9 @@ public class GroupBroadcaster {
         plugin = Sponge.getPluginManager().getPlugin("groupbroadcaster").get();
         pluginInstance = this;
         
+        scheduler = Sponge.getScheduler();
+        taskBuilder = scheduler.createTaskBuilder();
+        
         Asset asset = plugin.getAsset("groupbroadcaster.conf").orElse(null);
         Path configPath = configDir.resolve("groupbroadcaster.conf");
         
@@ -123,6 +126,7 @@ public class GroupBroadcaster {
         if (easyMode) {
             
         } else {
+            String groupId, messageOrdering, superGroup, frequency;
             Sponge.getEventManager().registerListeners(this, new PlayerJoinLeaveListener());
             groupList = new ArrayList<Group>();
             
@@ -130,7 +134,7 @@ public class GroupBroadcaster {
             log.info("===================");
             log.info("== Group Loading ==");
             log.info("===================");
-            for (ConfigurationNode group : rootNode.getNode("config", "groups").getChildrenList()) {
+            for (ConfigurationNode group : rootNode.getNode("config", "groups").getChildrenMap().values()) {
                 log.info("Evaluating ConfigurationNode " + group.getKey().toString());
                 LinkedHashSet<String> messages = new LinkedHashSet<String>();
                 
@@ -138,7 +142,12 @@ public class GroupBroadcaster {
                     messages.add(node.getString(node.getString()));
                 }
                 
-                groupList.add(new Group(group.getString(), group.getString("message-ordering"), group.getString("super-group"), group.getString("frequency"), messages));
+                groupId = group.getKey().toString();
+                messageOrdering = group.getNode("message-ordering") != null ? group.getNode("message-ordering").getString() : null;
+                superGroup = group.getNode("super-group") != null ? group.getNode("super-group").getString() : null;
+                frequency = group.getNode("frequency") != null ? group.getNode("frequency").getString() : null;
+                
+                groupList.add(new Group(groupId, superGroup, messageOrdering, frequency, messages));
             }
             
             log.info("========================");
@@ -146,9 +155,6 @@ public class GroupBroadcaster {
             log.info("========================");
             log.info("");
         }
-        
-        scheduler = Sponge.getScheduler();
-        taskBuilder = scheduler.createTaskBuilder();
     }
     
     @Listener
@@ -171,15 +177,20 @@ public class GroupBroadcaster {
      */
     public LinkedHashSet<String> getGroupMessages(String groupId) {
         LinkedHashSet<String> messages = new LinkedHashSet<String>();
-        ConfigurationNode groupsRoot = rootNode.getNode("groups");
+        ConfigurationNode groupsRoot = rootNode.getNode("config", "groups");
         ConfigurationNode group = groupsRoot.getNode(groupId);
         
-        if (!group.getString("super-group").isEmpty()) {
-            messages.addAll(getGroupMessages(group.getString("super-group")));
+        if (group == null) {
+            log.warn("A group has a super-group set to " + groupId + ", but no such group exists!");
+            return messages;
         }
         
-        for (ConfigurationNode node : group.getNode("messages").getChildrenList()) {
-            messages.add(node.getString(node.getString()));
+        if (group.getNode("super-group") != null && group.getNode("super-group").getString() != null) {
+            messages.addAll(getGroupMessages(group.getNode("super-group").getString()));
+        }
+        
+        for (ConfigurationNode node : group.getNode("messages").getChildrenMap().values()) {
+            messages.add(node.getNode(node.getString()).getString());
         }
         
         return messages;
@@ -251,6 +262,7 @@ public class GroupBroadcaster {
         }
         
         while (superIterator.hasNext()) {
+            log.info("ret null: " + (ret == null) + " TextSerializers null: " + (TextSerializers.FORMATTING_CODE == null) + " superIterator null: " + (superIterator == null));
             ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
         }
         
