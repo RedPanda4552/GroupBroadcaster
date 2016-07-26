@@ -126,7 +126,6 @@ public class GroupBroadcaster {
         if (easyMode) {
             
         } else {
-            // TODO Explicitly look out for duplicate groups
             String groupId, messageOrdering, superGroup, frequency;
             Sponge.getEventManager().registerListeners(this, new PlayerJoinLeaveListener());
             groupList = new HashMap<String, Group>();
