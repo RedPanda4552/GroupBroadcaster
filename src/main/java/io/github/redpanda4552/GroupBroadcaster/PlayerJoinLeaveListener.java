@@ -16,7 +16,7 @@ public class PlayerJoinLeaveListener {
     public void onPlayerJoin(ClientConnectionEvent.Join event) {
         Player player = event.getTargetEntity();
         
-        for (Group group : groupBroadcaster.getGroupList()) {
+        for (Group group : groupBroadcaster.getGroupList().values()) {
             if (player.hasPermission("GroupBroadcaster.memberOf." + group.getGroupId())) {
                 group.addMember(player.getUniqueId());
                 return;
@@ -28,7 +28,7 @@ public class PlayerJoinLeaveListener {
     public void onPlayerLeave(ClientConnectionEvent.Disconnect event) {
         Player player = event.getTargetEntity();
         
-        for (Group group : groupBroadcaster.getGroupList()) {
+        for (Group group : groupBroadcaster.getGroupList().values()) {
             if (group.isInGroup(player.getUniqueId())) {
                 group.removeMember(player.getUniqueId());
                 return;
