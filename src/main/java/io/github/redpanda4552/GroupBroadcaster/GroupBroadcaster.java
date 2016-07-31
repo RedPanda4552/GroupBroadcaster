@@ -60,8 +60,8 @@ public class GroupBroadcaster {
         return taskBuilder;
     }
     
-    public static PluginContainer plugin;
-    public static GroupBroadcaster pluginInstance;
+    public static PluginContainer pluginContainer;
+    public static GroupBroadcaster pluginClass;
     private HashMap<String, Group> groupMap = null;
     private boolean easyMode;
     
@@ -76,13 +76,13 @@ public class GroupBroadcaster {
 
     @Listener
     public void onServerStart(GameStartedServerEvent event) {
-        plugin = Sponge.getPluginManager().getPlugin("groupbroadcaster").get();
-        pluginInstance = this;
+        pluginContainer = Sponge.getPluginManager().getPlugin("groupbroadcaster").get();
+        pluginClass = this;
         
         scheduler = Sponge.getScheduler();
         taskBuilder = scheduler.createTaskBuilder();
         
-        Asset asset = plugin.getAsset("groupbroadcaster.conf").orElse(null);
+        Asset asset = pluginContainer.getAsset("groupbroadcaster.conf").orElse(null);
         Path configPath = configDir.resolve("groupbroadcaster.conf");
         
         if (Files.notExists(configPath)) {
@@ -125,7 +125,15 @@ public class GroupBroadcaster {
         }
         
         if (easyMode) {
+            ConfigurationNode easyModeNode = rootNode.getNode("config", "easy");
+            String frequency = easyModeNode.getNode("frequency") != null ? easyModeNode.getNode("frequency").getString() : null;
+            LinkedHashSet<String> messages = new LinkedHashSet<String>();
             
+            for (ConfigurationNode node : easyModeNode.getNode("messages").getChildrenMap().values()) {
+                messages.add(node.getString());
+            }
+            
+            new EasyMode(frequency, messages);
         } else {
             String groupId, messageOrdering, superGroup, frequency;
             Sponge.getEventManager().registerListeners(this, new PlayerJoinLeaveListener());
@@ -150,6 +158,7 @@ public class GroupBroadcaster {
                 
                 LinkedHashSet<String> messages = new LinkedHashSet<String>();
                 
+                // TODO Order is being lost, because values() is creating a Collection
                 for (ConfigurationNode node : group.getNode("messages").getChildrenMap().values()) {
                     messages.add(node.getString());
                 }
@@ -177,55 +186,87 @@ public class GroupBroadcaster {
         return groupMap;
     }
     
+    public LinkedHashSet<Text> deserialize(LinkedHashSet<String> messages) {
+        LinkedHashSet<Text> ret = new LinkedHashSet<Text>();
+        
+        for (String str : messages) {
+            ret.add(TextSerializers.FORMATTING_CODE.deserialize(str));
+        }
+        
+        return ret;
+    }
+    
     /**
      * Fetch messages assigned to a {@link Group Group}, and recurse through all super {@link Group Groups}, adding their messages as well.
      * @param groupId - The {@link Group Group} to fetch messages for.
      * @return An ordered set of the messages this {@link Group Group} should receive.
      */
     public LinkedHashSet<String> getGroupMessages(String groupId) {
-        LinkedHashSet<String> messages = new LinkedHashSet<String>();
+        LinkedHashSet<String> ret = new LinkedHashSet<String>();
+        LinkedHashSet<String> groupMessages = new LinkedHashSet<String>();
+        LinkedHashSet<String> superMessages = new LinkedHashSet<String>();
         ConfigurationNode groupsRoot = rootNode.getNode("config", "groups");
         ConfigurationNode group = groupsRoot.getNode(groupId);
-        log.info("Getting all messages for group " + groupId);
+        log.info("getGroupMessages(): Getting all messages for group " + groupId);
         
         if (group == null) {
-            log.warn("A group has a super-group set to " + groupId + ", but no such group exists!");
-            return messages;
+            log.warn("Group " + groupId + " has a super-group set to " + groupId + ", but no such group exists!");
+            return ret;
         }
         
         if (group.getNode("super-group") != null && group.getNode("super-group").getString() != null) {
-            log.debug("Found a super-group '" + group.getNode("super-group").getString() + "', adding all its messages");
-            messages.addAll(getGroupMessages(group.getNode("super-group").getString()));
+            log.info("getGroupMessages(): Found a super-group '" + group.getNode("super-group").getString() + "', adding all its messages");
+            superMessages.addAll(getGroupMessages(group.getNode("super-group").getString()));
         }
         
         for (ConfigurationNode node : group.getNode("messages").getChildrenMap().values()) {
-            log.debug("Adding a message from this group, " + groupId);
-            messages.add(node.getString());
+            log.info("getGroupMessages(): Adding a message from this group, " + groupId);
+            groupMessages.add(node.getString());
         }
         
-        return messages;
+        if (group.getNode("message-ordering") != null && group.getNode("message-ordering").getString() != null) {
+            switch (group.getNode("message-ordering").getString()) {
+            case "mesh":
+                ret = meshMessages(groupMessages, superMessages);
+                break;
+            case "append":
+                ret = appendMessages(groupMessages, superMessages);
+                break;
+            default:
+                // We won't yell about a bad message-ordering here; that will happen when the group is loaded.
+                ret = meshMessages(groupMessages, superMessages);
+                break;
+            }
+        } else {
+            ret = groupMessages;
+        }
+        
+        return ret;
     }
     
-    protected LinkedHashSet<Text> meshMessages(LinkedHashSet<String> groupMessages, LinkedHashSet<String> superMessages) {
+    protected LinkedHashSet<String> meshMessages(LinkedHashSet<String> groupMessages, LinkedHashSet<String> superMessages) {
+        log.info("meshMessages(): Method called");
         int groupSize = groupMessages.size(), superSize = superMessages.size();
         int largerFreq = 0; // How many consecutive messages to pull from the larger group before pulling one from the smaller group.
         Iterator<String> groupIterator = groupMessages.iterator();
         Iterator<String> superIterator = superMessages.iterator();
-        LinkedHashSet<Text> ret = new LinkedHashSet<Text>();
+        LinkedHashSet<String> ret = new LinkedHashSet<String>();
         
         if (groupSize > superSize) {
+            log.info("groupSize > superSize");
             largerFreq = Math.floorDiv(groupSize, superSize);
+            log.info("meshMessages(): largerFreq = " + largerFreq);
+            int x = 0;
             
             while (ret.size() != groupSize + superSize) {
-                int x = 0;
                 
                 if (groupIterator.hasNext() && x < largerFreq) {
-                    log.info("Deserializing from this group");
-                    ret.add(TextSerializers.FORMATTING_CODE.deserialize(groupIterator.next()));
+                    log.info("meshMessages(): Adding from this group");
+                    ret.add(groupIterator.next());
                     x++;
                 } else if (superIterator.hasNext()) {
-                    log.info("Deserializing from the super group");
-                    ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
+                    log.info("meshMessages(): Adding from the super group");
+                    ret.add(superIterator.next());
                     x = 0;
                 } else {
                     // If the counter indicates a change to the super group,
@@ -236,16 +277,20 @@ public class GroupBroadcaster {
             }
             
         } else if (groupSize < superSize) {
+            log.info("meshMessages(): groupSize < superSize");
             largerFreq = Math.floorDiv(superSize, groupSize);
+            log.info("meshMessages(): largerFreq = " + largerFreq);
+            int x = 0;
             
             while (ret.size() != superSize + groupSize) {
-                int x = 0;
-                
+                log.info("meshMessages(): x = " + x);
                 if (superIterator.hasNext() && x < largerFreq) {
-                    ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
+                    log.info("meshMessages(): Adding from the super group");
+                    ret.add(superIterator.next());
                     x++;
                 } else if (groupIterator.hasNext()) {
-                    ret.add(TextSerializers.FORMATTING_CODE.deserialize(groupIterator.next()));
+                    log.info("meshMessages(): Adding from this group");
+                    ret.add(groupIterator.next());
                     x = 0;
                 } else {
                     // If the counter indicates a change to the main group,
@@ -255,28 +300,31 @@ public class GroupBroadcaster {
                 }
             }
         } else {
+            log.info("meshMessages(): groupSize = superSize");
             while (groupIterator.hasNext() && superIterator.hasNext()) {
-                ret.add(TextSerializers.FORMATTING_CODE.deserialize(groupIterator.next()));
-                ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
+                log.info("meshMessages(): Adding from this group");
+                ret.add(groupIterator.next());
+                log.info("meshMessages(): Adding from the super group");
+                ret.add(superIterator.next());
             }
         }
         
         return ret;
     }
     
-    protected LinkedHashSet<Text> appendMessages(LinkedHashSet<String> groupMessages, LinkedHashSet<String> superMessages) {
+    protected LinkedHashSet<String> appendMessages(LinkedHashSet<String> groupMessages, LinkedHashSet<String> superMessages) {
         Iterator<String> groupIterator = groupMessages.iterator();
         Iterator<String> superIterator = superMessages.iterator();
-        LinkedHashSet<Text> ret = new LinkedHashSet<Text>();
+        LinkedHashSet<String> ret = new LinkedHashSet<String>();
         
         while (groupIterator.hasNext()) {
-            log.debug("Deserializing from this group");
-            ret.add(TextSerializers.FORMATTING_CODE.deserialize(groupIterator.next()));
+            log.info("appendMessages(): Adding from this group");
+            ret.add(groupIterator.next());
         }
         
         while (superIterator.hasNext()) {
-            log.debug("Deserializing from this group");
-            ret.add(TextSerializers.FORMATTING_CODE.deserialize(superIterator.next()));
+            log.info("appendMessages(): Adding from the super group");
+            ret.add(superIterator.next());
         }
         
         return ret;

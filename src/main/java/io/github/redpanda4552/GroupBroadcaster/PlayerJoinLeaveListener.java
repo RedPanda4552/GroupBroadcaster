@@ -10,7 +10,7 @@ import org.spongepowered.api.event.network.ClientConnectionEvent;
  */
 public class PlayerJoinLeaveListener {
     
-    private final GroupBroadcaster groupBroadcaster = GroupBroadcaster.pluginInstance;
+    private final GroupBroadcaster groupBroadcaster = GroupBroadcaster.pluginClass;
 
     @Listener
     public void onPlayerJoin(ClientConnectionEvent.Join event) {

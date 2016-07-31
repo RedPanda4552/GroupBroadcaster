@@ -7,11 +7,10 @@ import java.util.UUID;
 
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.serializer.TextSerializers;
 
 public class Group {
     
-    private final GroupBroadcaster groupBroadcaster = GroupBroadcaster.pluginInstance;
+    private final GroupBroadcaster groupBroadcaster = GroupBroadcaster.pluginClass;
 
     /**
      * {@link Group Group} members who are currently on the server.
@@ -74,7 +73,7 @@ public class Group {
             this.groupBroadcaster.log.warn("Bad frequency for group '" + groupId + "'; a unit of time, s for seconds, m for minutes, or h for hours, must be specified. Defaulting to 5 minutes.");
         }
         
-        LinkedHashSet<Text> messageSetBuilder = new LinkedHashSet<Text>();
+        LinkedHashSet<String> messageSetBuilder = new LinkedHashSet<String>();
         
         if (this.superGroup != null) {
             switch (this.messageOrdering) {
@@ -91,11 +90,11 @@ public class Group {
             }
         } else {
             for (String str : messages) {
-                messageSetBuilder.add(TextSerializers.FORMATTING_CODE.deserialize(str));
+                messageSetBuilder.add(str);
             }
         }
         
-        messageSet = messageSetBuilder;
+        messageSet = groupBroadcaster.deserialize(messageSetBuilder);
         onlineMembers = new ArrayList<UUID>();
         messageIterator = messageSet.iterator();
         startBroadcastCycle();
@@ -133,29 +132,31 @@ public class Group {
 
             @Override
             public void run() {
-                groupBroadcaster.log.info("Dispatching a wave of messages for group " + groupId);
+                groupBroadcaster.log.info("run(): Dispatching a wave of messages for group " + groupId);
                 Player player = null;
                 
-                for (UUID playerId : onlineMembers) {
+                final ArrayList<UUID> tempMembers = onlineMembers;
+                
+                for (UUID playerId : tempMembers) {
                     player = groupBroadcaster.getPlayer(playerId);
-                    groupBroadcaster.log.info("Evaluating player " + player);
+                    groupBroadcaster.log.info("run(): Evaluating player " + player);
                     
                     if (player != null) {
-                        groupBroadcaster.log.info("Exists");
+                        groupBroadcaster.log.info("run(): Exists");
                         if (!messageIterator.hasNext()) {
-                            groupBroadcaster.log.info("Resetting the iterator");
+                            groupBroadcaster.log.info("run(): Resetting the iterator");
                             messageIterator = messageSet.iterator();
                         }
                         
-                        groupBroadcaster.log.info("Sending the message");
+                        groupBroadcaster.log.info("run(): Sending the message");
                         player.sendMessage(messageIterator.next());
                     } else {
-                        groupBroadcaster.log.info("Doesn't exist, removing");
+                        groupBroadcaster.log.info("run(): Doesn't exist, removing");
                         removeMember(playerId);
                     }
                 }
             }
             
-        }).async().name(groupId + "-broadcast-cycle").intervalTicks(frequencyTicks).submit(groupBroadcaster); // TODO Is this supposed to be the main class?
+        }).async().name(groupId + "-broadcast-cycle").intervalTicks(frequencyTicks).submit(groupBroadcaster);
     }
 }
